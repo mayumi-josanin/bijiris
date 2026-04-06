@@ -37,6 +37,16 @@ http://127.0.0.1:8123/
 このアプリは Python サーバー、SQLite、画像アップロードを使うため、GitHub Pages のような静的ホスティングでは動きません。  
 GitHub にコードを置き、Render の Web Service と永続ディスクで公開する構成を推奨します。
 
+リポジトリ:
+
+```text
+https://github.com/mayumi-josanin/bijiris
+```
+
+Render へ取り込む:
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/mayumi-josanin/bijiris)
+
 追加済みファイル:
 
 - Render Blueprint: `render.yaml`

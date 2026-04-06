@@ -2,6 +2,7 @@ const TICKET_END_FORM_SLUG = "bijiris-ticket-end";
 const TICKET_SHEET_FIELD_KEY = "ticket_sheet_number";
 const RESPONDENT_NAME_STORAGE_KEY = "bijiris_respondent_name";
 const INSTALL_GUIDE_STORAGE_KEY = "bijiris_install_guide_seen";
+const runtime = window.BijirisRuntime;
 
 const formState = {
   slug: getSlugFromPath(),
@@ -30,6 +31,10 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function getSlugFromPath() {
+  const fromQuery = new URLSearchParams(window.location.search).get("form");
+  if (fromQuery) {
+    return String(fromQuery).trim();
+  }
   const segments = window.location.pathname.split("/").filter(Boolean);
   if (segments[0] === "f" && segments[1]) {
     return segments[1];
@@ -113,7 +118,7 @@ function bindRespondentElements() {
     }
   });
   formEls.backToSelector.addEventListener("click", () => {
-    window.location.href = "/f/";
+    window.location.href = runtime.respondentFormUrl("");
   });
   formEls.reloadAppFromSelector.addEventListener("click", () => {
     forceAppRefresh(true);
@@ -163,7 +168,9 @@ async function registerRespondentServiceWorker() {
     return;
   }
   try {
-    const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+    const swUrl = new URL("sw.js", runtime.siteRootUrl()).toString();
+    const scope = new URL("./", runtime.respondentHomeUrl()).pathname;
+    const registration = await navigator.serviceWorker.register(swUrl, { scope });
     installState.registration = registration;
     navigator.serviceWorker.addEventListener("controllerchange", () => {
       if (appLifecycle.swRefreshPending) {
@@ -182,11 +189,7 @@ async function registerRespondentServiceWorker() {
 
 async function loadFormList() {
   try {
-    const response = await fetch("/api/public/forms");
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || "アンケート一覧を読み込めませんでした。");
-    }
+    const data = await runtime.request("/api/public/forms");
     renderSelector(data.forms || []);
     showSelector();
   } catch (error) {
@@ -354,27 +357,23 @@ function renderSelector(forms) {
 
   formEls.selectorList.querySelectorAll("[data-form-slug]").forEach((button) => {
     button.addEventListener("click", () => {
-      window.location.href = `/f/${button.dataset.formSlug}`;
+      window.location.href = runtime.respondentFormUrl(button.dataset.formSlug);
     });
   });
 }
 
 async function loadForm(slug) {
   try {
-    const response = await fetch(`/api/public/forms/${encodeURIComponent(slug)}`);
-    const data = await response.json();
-    if (!response.ok) {
-      if (response.status === 404) {
-        formState.slug = null;
-        showBanner("このショートカットは古くなっています。最新のアンケート一覧を表示します。");
-        await loadFormList();
-        return;
-      }
-      throw new Error(data.error || "フォームを読み込めませんでした。");
-    }
+    const data = await runtime.request(`/api/public/forms/${encodeURIComponent(slug)}`);
     formState.form = data.form;
     renderForm();
   } catch (error) {
+    if (String(error.message || "").includes("見つかりません")) {
+      formState.slug = null;
+      showBanner("このショートカットは古くなっています。最新のアンケート一覧を表示します。");
+      await loadFormList();
+      return;
+    }
     showBanner(error.message);
   }
 }
@@ -699,14 +698,7 @@ async function onSubmit(event) {
       }
       formData.set(TICKET_SHEET_FIELD_KEY, formState.ticketSheetNumber);
     }
-    const response = await fetch(`/api/public/forms/${encodeURIComponent(formState.slug)}/submit`, {
-      method: "POST",
-      body: formData,
-    });
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.error || "送信に失敗しました。");
-    }
+    const data = await runtime.requestMultipart(`/api/public/forms/${encodeURIComponent(formState.slug)}/submit`, formData);
     saveStoredRespondentName(respondentName);
     formEls.successMessage.textContent = data.message || "送信ありがとうございました。";
     showSuccessPanel();
@@ -750,11 +742,7 @@ async function onHistorySearch() {
     if (!respondentName) {
       throw new Error("お名前を入力してください。");
     }
-    const response = await fetch(`/api/public/respondents/history?name=${encodeURIComponent(respondentName)}`);
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(data.error || "回答履歴を読み込めませんでした。");
-    }
+    const data = await runtime.request(`/api/public/respondents/history?name=${encodeURIComponent(respondentName)}`);
     saveStoredRespondentName(data.respondent?.respondentName || respondentName);
     renderRespondentHistoryResults(data.respondent || null, data.history || []);
   } catch (error) {

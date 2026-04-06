@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bijiris 管理画面</title>
+    <link rel="stylesheet" href="../assets/style.css" />
+  </head>
+  <body class="admin-body">
+    <div id="loginPanel" class="login-shell">
+      <div class="login-card">
+        <p class="eyebrow">BIJIRIS</p>
+        <h1>回答管理アプリ</h1>
+        <p class="muted">管理者ログイン後に、フォーム作成、QRコード共有、回答履歴の確認を行えます。</p>
+        <form id="loginForm" class="stack-gap">
+          <label class="field">
+            <span>管理者パスワード</span>
+            <input id="loginPassword" type="password" name="password" autocomplete="current-password" required />
+          </label>
+          <button class="primary-button" type="submit">ログイン</button>
+          <p id="loginHelp" class="inline-help"></p>
+          <p id="loginError" class="error-text"></p>
+        </form>
+      </div>
+    </div>
+
+    <!-- Management markup stays identical to the local admin page -->
+    <div id="adminApp" class="admin-shell hidden">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">BIJIRIS ADMIN</p>
+          <h1>画像回答フォーム管理</h1>
+          <p class="muted">
+            共通QRコードからアンケートを選んで回答してもらい、履歴をフォーム別・お名前単位で管理します。
+          </p>
+          <div class="hero-stripes">
+            <span>QR</span>
+            <span>SELECT</span>
+            <span>UPLOAD</span>
+            <span>REVIEW</span>
+          </div>
+        </div>
+        <div class="hero-actions">
+          <div class="pill-set">
+            <span class="pill">フォーム作成</span>
+            <span class="pill">画像アップロード</span>
+            <span class="pill">履歴管理</span>
+          </div>
+          <button id="logoutButton" class="secondary-button" type="button">ログアウト</button>
+        </div>
+        <aside class="hero-panel">
+          <p class="hero-panel-label">運用フロー</p>
+          <div class="hero-panel-grid">
+            <div>
+              <span>入口</span>
+              <strong>共通QR</strong>
+            </div>
+            <div>
+              <span>分岐</span>
+              <strong>タイトル選択</strong>
+            </div>
+            <div>
+              <span>収集</span>
+              <strong>画像つき回答</strong>
+            </div>
+            <div>
+              <span>管理</span>
+              <strong>履歴追跡</strong>
+            </div>
+          </div>
+        </aside>
+      </header>
+
+      <nav class="tab-nav">
+        <button class="tab-link active" data-panel-target="overview" type="button">ダッシュボード</button>
+        <button class="tab-link" data-panel-target="forms" type="button">フォーム管理</button>
+        <button class="tab-link" data-panel-target="responses" type="button">回答一覧</button>
+        <button class="tab-link" data-panel-target="respondents" type="button">回答者履歴</button>
+        <button class="tab-link" data-panel-target="measurements" type="button">計測管理</button>
+        <button class="tab-link" data-panel-target="settings" type="button">設定</button>
+      </nav>
+
+      <main class="panel-stack">
+        <section id="panel-overview" class="panel active">
+          <div class="stats-grid">
+            <article class="stat-card">
+              <p class="stat-label">フォーム数</p>
+              <p id="statFormCount" class="stat-value">0</p>
+            </article>
+            <article class="stat-card">
+              <p class="stat-label">総回答数</p>
+              <p id="statResponseCount" class="stat-value">0</p>
+            </article>
+            <article class="stat-card">
+              <p class="stat-label">回答者数</p>
+              <p id="statRespondentCount" class="stat-value">0</p>
+            </article>
+          </div>
+
+          <div class="two-column">
+            <section class="surface-card">
+              <div class="section-head">
+                <h2>フォーム一覧</h2>
+                <p class="muted">公開状態と回答状況を一目で確認できます。</p>
+              </div>
+              <div id="overviewForms" class="card-list"></div>
+            </section>
+
+            <section class="surface-card">
+              <div class="section-head">
+                <h2>最新の回答</h2>
+                <p class="muted">最近送信された画像付き回答を表示します。</p>
+              </div>
+              <div id="recentResponses" class="response-list compact-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="panel-forms" class="panel">
+          <div class="two-column forms-layout">
+            <section class="surface-card">
+              <div class="section-head spread">
+                <div>
+                  <h2>フォーム編集</h2>
+                  <p class="muted">アンケート項目、画像設問、条件表示を設定します。</p>
+                </div>
+                <button id="newFormButton" class="secondary-button" type="button">新規フォーム</button>
+              </div>
+
+              <form id="formEditor" class="stack-gap">
+                <input id="editorFormId" type="hidden" />
+                <div class="grid-two">
+                  <label class="field">
+                    <span>フォーム名</span>
+                    <input id="editorTitle" type="text" required />
+                  </label>
+                  <label class="field">
+                    <span>公開URLスラッグ</span>
+                    <input id="editorSlug" type="text" placeholder="genba-houkoku" />
+                  </label>
+                </div>
+                <label class="field">
+                  <span>説明文</span>
+                  <textarea id="editorDescription" rows="3"></textarea>
+                </label>
+                <label class="field">
+                  <span>送信完了メッセージ</span>
+                  <textarea id="editorSuccessMessage" rows="2"></textarea>
+                </label>
+                <div class="grid-two">
+                  <label class="field">
+                    <span>分類ラベル</span>
+                    <input id="editorCategoryLabel" type="text" value="分類" />
+                  </label>
+                  <label class="field">
+                    <span>公開状態</span>
+                    <select id="editorIsActive">
+                      <option value="true">公開</option>
+                      <option value="false">非公開</option>
+                    </select>
+                  </label>
+                </div>
+                <label class="field">
+                  <span>分類選択肢</span>
+                  <textarea id="editorCategoryOptions" rows="3" placeholder="未使用なら空欄のままで構いません"></textarea>
+                </label>
+
+                <div class="sub-section-head">
+                  <div>
+                    <h3>追加質問</h3>
+                    <p class="muted">お名前は全フォーム共通の固定必須項目です。画像設問や条件表示付き設問を追加できます。</p>
+                  </div>
+                  <div class="button-row">
+                    <button class="ghost-button" type="button" data-add-field="short_text">短文</button>
+                    <button class="ghost-button" type="button" data-add-field="long_text">長文</button>
+                    <button class="ghost-button" type="button" data-add-field="select">選択肢</button>
+                    <button class="ghost-button" type="button" data-add-field="radio">ラジオ</button>
+                    <button class="ghost-button" type="button" data-add-field="checkbox">複数選択</button>
+                    <button class="ghost-button" type="button" data-add-field="file">画像</button>
+                  </div>
+                </div>
+
+                <div id="builderFields" class="field-builder"></div>
+                <p id="formError" class="error-text"></p>
+                <button class="primary-button" type="submit">フォームを保存</button>
+              </form>
+            </section>
+
+            <section class="surface-card">
+              <div class="section-head">
+                <h2>フォーム公開状況</h2>
+                <p class="muted">共通QRコードからアンケート選択画面に遷移します。各フォームの直リンクも確認できます。</p>
+              </div>
+              <div id="formCards" class="card-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="panel-responses" class="panel">
+          <div class="surface-card">
+            <div class="section-head spread">
+              <div>
+                <h2>回答一覧</h2>
+                <p class="muted">分類別集計と、画像付き回答の詳細を確認できます。</p>
+              </div>
+              <div class="toolbar">
+                <label class="field small">
+                  <span>フォーム</span>
+                  <select id="responseFormFilter"></select>
+                </label>
+                <label class="field small">
+                  <span>分類</span>
+                  <select id="responseCategoryFilter"></select>
+                </label>
+                <label class="field small">
+                  <span>回答者検索</span>
+                  <input id="responseSearch" type="search" placeholder="お名前" />
+                </label>
+                <button id="responseSearchButton" class="secondary-button" type="button">検索</button>
+              </div>
+            </div>
+
+            <div id="categorySummary" class="summary-bars"></div>
+
+            <div class="two-column detail-layout">
+              <div id="responseList" class="response-list"></div>
+              <aside class="detail-pane">
+                <div class="section-head">
+                  <h3>回答詳細</h3>
+                  <p class="muted">回答をクリックすると詳細を表示します。</p>
+                </div>
+                <div id="responseDetail" class="detail-content empty-state">回答を選択してください。</div>
+              </aside>
+            </div>
+          </div>
+        </section>
+
+        <section id="panel-respondents" class="panel">
+          <div class="surface-card">
+            <div class="section-head spread">
+              <div>
+                <h2>回答者履歴</h2>
+                <p class="muted">お名前ごとに履歴を確認し、必要に応じて編集や削除を行います。</p>
+              </div>
+              <div class="toolbar">
+                <button id="newRespondentButton" class="primary-button" type="button">回答者を登録</button>
+                <label class="field small">
+                  <span>フォーム</span>
+                  <select id="respondentFormFilter"></select>
+                </label>
+                <label class="field small">
+                  <span>検索</span>
+                  <input id="respondentSearch" type="search" placeholder="お名前" />
+                </label>
+                <button id="respondentSearchButton" class="secondary-button" type="button">検索</button>
+              </div>
+            </div>
+
+            <div class="two-column detail-layout respondent-detail-layout">
+              <div id="respondentList" class="card-list"></div>
+              <aside class="detail-pane respondent-history-pane">
+                <div class="section-head">
+                  <h3>履歴詳細</h3>
+                  <p class="muted">回答者を選択すると、過去の送信内容を時系列で表示します。</p>
+                </div>
+                <div id="respondentHistory" class="detail-content empty-state">回答者を選択してください。</div>
+              </aside>
+            </div>
+          </div>
+        </section>
+
+        <section id="panel-measurements" class="panel">
+          <div class="surface-card stack-gap">
+            <div class="section-head spread">
+              <div>
+                <h2>計測管理</h2>
+                <p class="muted">全回答者の計測記録をまとめて入力し、一覧で編集できます。</p>
+              </div>
+              <div class="toolbar">
+                <label class="field small">
+                  <span>お名前検索</span>
+                  <input id="measurementRespondentFilter" type="search" list="respondentDirectoryOptions" placeholder="お名前で部分一致検索" />
+                </label>
+                <label class="field small">
+                  <span>キーワード</span>
+                  <input id="measurementSearch" type="search" placeholder="日付・カテゴリ・数値で検索" />
+                </label>
+                <button id="measurementSearchButton" class="secondary-button" type="button">検索</button>
+              </div>
+            </div>
+
+            <datalist id="respondentDirectoryOptions"></datalist>
+
+            <section class="history-sheet stack-gap compact-gap">
+              <div class="spread history-sheet-head">
+                <div>
+                  <h4>計測記録を追加</h4>
+                  <p class="muted">ここで入力すると、選択した回答者の計測記録にそのまま保存されます。</p>
+                </div>
+              </div>
+              <form id="measurementManagerForm" class="stack-gap compact-gap">
+                <div class="measurement-manager-form-grid">
+                  <label class="field">
+                    <span>回答者</span>
+                    <input id="measurementRespondentInput" type="search" list="respondentDirectoryOptions" placeholder="お名前を入力または選択" required />
+                  </label>
+                  <label class="field">
+                    <span>計測日</span>
+                    <input id="measurementEntryDate" type="date" required />
+                  </label>
+                  <label class="field">
+                    <span>カテゴリ</span>
+                    <select id="measurementEntryCategory">
+                      <option value="">未選択</option>
+                      <option value="モニター">モニター</option>
+                      <option value="回数券">回数券</option>
+                      <option value="トライアル">トライアル</option>
+                      <option value="単発">単発</option>
+                      <option value="初回お試し">初回お試し</option>
+                      <option value="乗り放題キャンペーン">乗り放題キャンペーン</option>
+                      <option value="その他">その他</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>ウエスト(cm)</span>
+                    <input id="measurementEntryWaist" type="number" min="0" step="0.1" required />
+                  </label>
+                  <label class="field">
+                    <span>ヒップ(cm)</span>
+                    <input id="measurementEntryHip" type="number" min="0" step="0.1" required />
+                  </label>
+                  <label class="field">
+                    <span>太もも(cm)</span>
+                    <input id="measurementEntryThigh" type="number" min="0" step="0.1" required />
+                  </label>
+                </div>
+                <div class="button-row">
+                  <button class="primary-button compact-button" type="submit">計測記録を追加</button>
+                  <p class="muted profile-inline-note">回答者履歴へ自動で反映されます。</p>
+                </div>
+                <p id="measurementManagerError" class="error-text"></p>
+              </form>
+            </section>
+
+            <div id="measurementManagerFeedback"></div>
+            <div id="measurementManagerList" class="stack-gap"></div>
+          </div>
+        </section>
+
+        <section id="panel-settings" class="panel">
+          <div class="surface-card stack-gap">
+            <div class="section-head spread">
+              <div>
+                <h2>運用設定</h2>
+                <p class="muted">公開URL、管理者パスワード、バックアップ、現在の運用状態を管理します。</p>
+              </div>
+              <button id="refreshOperationsButton" class="secondary-button" type="button">状態を更新</button>
+            </div>
+
+            <div id="operationsStatus" class="operations-grid"></div>
+
+            <div class="two-column settings-layout">
+              <section class="history-sheet stack-gap compact-gap">
+                <div class="history-sheet-head">
+                  <div>
+                    <h4>公開URL設定</h4>
+                    <p class="muted">固定の公開URLや独自ドメインを使う場合はここで保存します。</p>
+                  </div>
+                </div>
+                <form id="publicBaseUrlForm" class="stack-gap compact-gap">
+                  <label class="field">
+                    <span>公開ベースURL</span>
+                    <input id="settingsPublicBaseUrl" type="url" inputmode="url" placeholder="https://example.com" />
+                  </label>
+                  <div class="button-row">
+                    <button class="primary-button compact-button" type="submit">公開URLを保存</button>
+                    <button id="settingsPublicBaseUrlClear" class="ghost-button compact-button" type="button">自動判定に戻す</button>
+                  </div>
+                  <p id="publicBaseUrlHelp" class="muted"></p>
+                  <p id="publicBaseUrlError" class="error-text"></p>
+                </form>
+              </section>
+
+              <section class="history-sheet stack-gap compact-gap">
+                <div class="history-sheet-head">
+                  <div>
+                    <h4>管理者パスワード変更</h4>
+                    <p class="muted">初期パスワードのまま運用しないように変更してください。</p>
+                  </div>
+                </div>
+                <form id="passwordChangeForm" class="stack-gap compact-gap">
+                  <label class="field">
+                    <span>現在のパスワード</span>
+                    <input id="currentPassword" type="password" autocomplete="current-password" required />
+                  </label>
+                  <label class="field">
+                    <span>新しいパスワード</span>
+                    <input id="newPassword" type="password" autocomplete="new-password" minlength="8" required />
+                  </label>
+                  <label class="field">
+                    <span>新しいパスワード(確認)</span>
+                    <input id="confirmPassword" type="password" autocomplete="new-password" minlength="8" required />
+                  </label>
+                  <div class="button-row">
+                    <button class="primary-button compact-button" type="submit">パスワードを変更</button>
+                  </div>
+                  <p id="passwordChangeHelp" class="muted"></p>
+                  <p id="passwordChangeError" class="error-text"></p>
+                </form>
+              </section>
+            </div>
+
+            <section class="history-sheet stack-gap compact-gap">
+              <div class="section-head spread">
+                <div>
+                  <h4>バックアップ</h4>
+                  <p class="muted">データベース、設定、アップロード画像をまとめて保存します。</p>
+                </div>
+                <button id="createBackupButton" class="primary-button compact-button" type="button">バックアップを作成</button>
+              </div>
+              <p id="backupFeedback" class="muted"></p>
+              <div id="backupList" class="stack-gap compact-gap"></div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="imageModal" class="image-modal hidden" aria-hidden="true">
+      <div class="image-modal-backdrop" data-image-modal-close></div>
+      <div class="image-modal-dialog" role="dialog" aria-modal="true" aria-label="画像プレビュー">
+        <button id="imageModalClose" class="image-modal-close" type="button" data-image-modal-close>閉じる</button>
+        <div class="image-modal-head">
+          <strong id="imageModalTitle">画像プレビュー</strong>
+          <p id="imageModalMeta" class="muted"></p>
+        </div>
+        <div class="image-modal-body">
+          <img id="imageModalImg" alt="画像プレビュー" />
+        </div>
+      </div>
+    </div>
+
+    <script src="../assets/config.js"></script>
+    <script src="../assets/runtime.js" defer></script>
+    <script src="../assets/admin.js" defer></script>
+  </body>
+</html>

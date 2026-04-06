@@ -8,6 +8,8 @@ const MEASUREMENT_CATEGORIES = [
   "その他",
 ];
 
+const runtime = window.BijirisRuntime;
+
 const state = {
   forms: [],
   stats: { formCount: 0, responseCount: 0, respondentCount: 0 },
@@ -223,7 +225,7 @@ async function bootstrap() {
     state.forms = data.forms || [];
     state.stats = data.stats || state.stats;
     state.recentResponses = data.recentResponses || [];
-    state.publicBaseUrl = data.publicBaseUrl || window.location.origin;
+    state.publicBaseUrl = data.publicBaseUrl || runtime.respondentHomeUrl();
     state.settings = data.settings || state.settings;
     state.operationsStatus = data.operationsStatus || null;
     state.backups = data.backups || [];
@@ -463,7 +465,7 @@ function renderForms() {
 
   const hubUrl = publicHubUrl();
   const qrAccessNote =
-    state.publicBaseUrl && state.publicBaseUrl !== window.location.origin
+    state.publicBaseUrl && state.publicBaseUrl !== runtime.respondentHomeUrl()
       ? `このQRコードはスマホ用に ${state.publicBaseUrl} を使っています。`
       : "お客さんはこのQRコードからアンケートタイトルを選択します。";
   const hubCard = `
@@ -1091,6 +1093,9 @@ function adminImageProxyUrl(src) {
   const raw = String(src || "").trim();
   if (!raw) {
     return "";
+  }
+  if (runtime.isGasMode()) {
+    return raw;
   }
   return `/api/admin/image-proxy?src=${encodeURIComponent(raw)}`;
 }
@@ -2338,24 +2343,7 @@ function setActivePanel(name) {
 }
 
 async function api(url, options = {}) {
-  const settings = {
-    method: options.method || "GET",
-    credentials: "same-origin",
-    headers: {},
-  };
-  if (options.body !== undefined) {
-    settings.headers["Content-Type"] = "application/json";
-    settings.body = JSON.stringify(options.body);
-  }
-  const response = await fetch(url, settings);
-  const data = await response.json().catch(() => ({}));
-  if (response.status === 401) {
-    throw new Error(data.error || "認証が必要です。");
-  }
-  if (!response.ok) {
-    throw new Error(data.error || "通信に失敗しました。");
-  }
-  return data;
+  return runtime.request(url, options);
 }
 
 function bindRespondentProfileForm(container) {
@@ -2997,27 +2985,31 @@ function respondentScopeLabel() {
 }
 
 async function multipartApi(url, formData) {
-  const response = await fetch(url, {
-    method: "POST",
-    credentials: "same-origin",
-    body: formData,
-  });
-  const data = await response.json().catch(() => ({}));
-  if (response.status === 401) {
-    throw new Error(data.error || "認証が必要です。");
-  }
-  if (!response.ok) {
-    throw new Error(data.error || "通信に失敗しました。");
-  }
-  return data;
+  return runtime.requestMultipart(url, formData);
 }
 
 function publicFormUrl(slug) {
-  return new URL(`/f/${slug}`, resolvedPublicBaseUrl()).toString();
+  const rawBase = String(state.publicBaseUrl || "").trim();
+  if (rawBase) {
+    const url = new URL(rawBase);
+    if (slug) {
+      url.searchParams.set("form", slug);
+    } else {
+      url.searchParams.delete("form");
+    }
+    return url.toString();
+  }
+  return runtime.respondentFormUrl(slug);
 }
 
 function publicHubUrl() {
-  return new URL("/f/", resolvedPublicBaseUrl()).toString();
+  const rawBase = String(state.publicBaseUrl || "").trim();
+  if (rawBase) {
+    const url = new URL(rawBase);
+    url.searchParams.delete("form");
+    return url.toString();
+  }
+  return runtime.respondentFormUrl("");
 }
 
 function resolvedPublicBaseUrl() {
@@ -3025,7 +3017,7 @@ function resolvedPublicBaseUrl() {
   if (raw) {
     return raw;
   }
-  return window.location.origin;
+  return runtime.respondentHomeUrl();
 }
 
 function qrCodeUrl(text) {

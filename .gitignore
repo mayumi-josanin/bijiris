@@ -1,0 +1,15 @@
+.DS_Store
+__pycache__/
+*.pyc
+.python-version
+.env
+.env.*
+!.env.example
+
+data/bijiris.db
+data/config.json
+data/uploads/
+data/backups/
+data/*.log
+
+.cloudflared/
